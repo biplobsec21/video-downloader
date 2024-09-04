@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabbed Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="libs/uuid.min.js"></script>
+    <script src="libs/axios.min.js"></script>
+    <script src="fbVideoInfo.js"></script>
+    <style>
+        .spinner-border {
+            border-top-color: transparent;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-4" style="width: 500px;">
+    <div>
+        <ul class="flex border-b">
+            <li class="-mb-px mr-1">
+                <a href="#facebook"
+                    class="tab-link bg-white inline-block py-2 px-4 text-blue-500 font-semibold border-b-2 border-blue-500"
+                    data-target="facebookContent">Facebook Pages</a>
+            </li>
+            <li class="mr-1">
+                <a href="#instagram"
+                    class="tab-link bg-white inline-block py-2 px-4 text-gray-600 hover:text-blue-500 font-semibold"
+                    data-target="instagramContent">Instagram Pages</a>
+            </li>
+            <li class="mr-1">
+                <a href="#tiktok"
+                    class="tab-link bg-white inline-block py-2 px-4 text-gray-600 hover:text-blue-500 font-semibold"
+                    data-target="tiktokContent">Tiktok Pages</a>
+            </li>
+            <li class="mr-1">
+                <a href="#youtube"
+                    class="tab-link bg-white inline-block py-2 px-4 text-gray-600 hover:text-blue-500 font-semibold"
+                    data-target="youtubeContent">Youtube</a>
+            </li>
+        </ul>
+
+        <div id="facebookContent" class="tab-content mt-4 flex flex-row flex-wrap">
+            <!-- Content for Facebook Pages -->
+            <p>This is the content for Facebook Pages.</p>
+        </div>
+        <div id="instagramContent" class="tab-content mt-4 hidden flex flex-row flex-wrap">
+            <!-- Content for Instagram Pages -->
+            <p>This is the content for Instagram Pages.</p>
+        </div>
+        <div id="tiktokContent" class="tab-content mt-4 hidden flex flex-row flex-wrap">
+            <!-- Content for Tiktok Pages -->
+            <p>This is the content for Tiktok Pages.</p>
+        </div>
+        <div id="youtubeContent" class="tab-content mt-4 hidden flex flex-row flex-wrap">
+            <!-- Content for Youtube Pages -->
+            <p>This is the content for Youtube Pages.</p>
+        </div>
+    </div>
+    <!-- Add this inside the popup.html file -->
+    <div id="spinner" class="hidden fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
+        <div class="spinner-border animate-spin border-4 border-blue-500 border-t-transparent rounded-full w-16 h-16">
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
