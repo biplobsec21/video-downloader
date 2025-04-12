@@ -27,7 +27,7 @@ function parseString(string) {
 
 // Function to get Facebook video info using Axios with dynamic cookies
 function getFbVideoInfo(videoUrl) {
-    return getCookies('.facebook.com').then(cookie => {
+    return getCookies('facebook.com').then(cookie => {
         const headers = {
             // "cookie": cookie, // No need to set cookies manually, the browser will handle it
             "accept-language": "en-GB,en;q=0.9,tr-TR;q=0.8,tr;q=0.7,en-US;q=0.6",
