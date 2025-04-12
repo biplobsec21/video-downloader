@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const tabContents = document.querySelectorAll('.tab-content');
     const facebookContent = document.getElementById('facebookContent');
 
-    // Function to handle tab switching
     function handleTabClick(event) {
         event.preventDefault();
 
@@ -20,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function () {
             link.classList.add('text-gray-600');
         });
 
-        // Add active class to the clicked link
         this.classList.add('text-blue-500', 'border-blue-500');
         this.classList.remove('text-gray-600');
 
@@ -34,13 +32,10 @@ document.addEventListener('DOMContentLoaded', function () {
         targetContent.classList.remove('hidden');
     }
 
-    // Function to enable/disable tabs based on the current URL
     function manageTabs(url) {
         let enabledTabId = null;
-
         if (url.includes('facebook.com')) {
             enabledTabId = 'facebookContent';
-            // Load the Facebook reels data
             loadFacebookReels();
         } else if (url.includes('instagram.com')) {
             enabledTabId = 'instagramContent';
@@ -61,15 +56,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 link.removeEventListener('click', handleTabClick);
             }
         });
-
-        tabContents.forEach(content => {
-            if (content.id !== enabledTabId) {
-                content.classList.add('hidden');
-            }
-        });
     }
 
-    // Function to load Facebook reels data
     function loadFacebookReels() {
         chrome.storage.local.get('reelsData', function (data) {
             const reels = data.reelsData || [];
@@ -99,9 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Function to handle download button click
     function handleDownloadClick(videoUrl) {
-        // Show the spinner
         document.getElementById('spinner').classList.remove('hidden');
 
         getFbVideoInfo(videoUrl)
@@ -152,13 +138,11 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    // Use chrome.tabs to get the current URL
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         const currentUrl = tabs[0].url;
         manageTabs(currentUrl);
     });
 
-    // Attach event listeners to each tab link
     tabLinks.forEach(link => {
         link.addEventListener('click', handleTabClick);
     });
