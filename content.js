@@ -40,11 +40,26 @@
             });
         });
     }
+    function getFbPageSlug() {
+        const url = new URL(window.location.href);
+        const pathnameParts = url.pathname.split('/').filter(Boolean);
+
+        if (url.pathname.startsWith('/profile.php')) {
+            // If it's an ID-based profile
+            const id = url.searchParams.get('id');
+            return id || ''; // return the ID as the slug
+        } else if (pathnameParts.length > 0) {
+            // If it's a username-based page
+            return pathnameParts[0];
+        }
+
+        return ''; // fallback
+    }
     // ✅ Function to extract and store FB page name
     function storeFbPageInfo() {
         const pageName = document.querySelector('h1')?.innerText || '';
         const url = window.location.href;
-        const slug = window.location.pathname.split('/').filter(Boolean)[0] || '';
+        const slug = getFbPageSlug(); // ← Use updated function
 
         // Get Likes Text
         const getPageLikesText = () => {

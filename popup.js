@@ -207,7 +207,15 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('fbPageLikes').textContent = fbPageInfo.likesText || '';
             document.getElementById('fbPageFollowers').textContent = fbPageInfo.followersText || '';
             document.getElementById('fbPageImage').src = fbPageInfo.imageUrl || '';
-            document.getElementById('fbPageUrl').href = fbPageInfo.url || '';
+            document.getElementById('fbPageUrl').addEventListener('click', (e) => {
+                e.preventDefault();
+
+                chrome.storage.local.get('fbPageInfo', ({ fbPageInfo }) => {
+                    if (fbPageInfo?.url) {
+                        chrome.tabs.update({ url: fbPageInfo.url });
+                    }
+                });
+            })
 
         }
 
