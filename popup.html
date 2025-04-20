@@ -41,9 +41,41 @@
             </li>
         </ul>
 
-        <div id="facebookContent" class="tab-content mt-4 flex flex-row flex-wrap">
+        <div id="facebookContent" class="tab-content mt-4 flex flex-row flex-wrap space-y-8 ">
             <!-- Content for Facebook Pages -->
-            <p>This is the content for Facebook Pages.</p>
+            <div class="flex items-center space-x-4">
+                <!-- Circular Image -->
+                <img id="fbPageImage" src="" alt="FB Page" class="w-24 h-24 rounded-full object-cover shadow" />
+
+                <div>
+                    <!-- Page Name -->
+                    <a id="fbPageUrl" target="_blank">
+                        <h2 id="fbPageName" class="text-lg font-semibold text-gray-800"></h2>
+                    </a>
+                    <!-- Likes + Followers -->
+                    <p class="text-sm text-gray-500">
+                        <span id="fbPageLikes" class="mr-4"></span>
+                        <span id="fbPageFollowers"></span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-3 w-full">
+                <button id="collectReelsBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow">
+                    📥 Collect Reels
+                </button>
+
+                <div id="reelsSummary" class="hidden bg-white rounded p-3 border text-gray-700 text-sm">
+                    <!-- Summary will be injected here -->
+                </div>
+
+                <button id="downloadJsonBtn"
+                    class="hidden bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded shadow">
+                    ⬇️ Download JSON
+                </button>
+            </div>
+
         </div>
         <div id="instagramContent" class="tab-content mt-4 hidden flex flex-row flex-wrap">
             <!-- Content for Instagram Pages -->

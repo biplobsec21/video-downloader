@@ -25,9 +25,9 @@
             reelsData.forEach(reel => {
                 existingReelsMap.set(reel.href, reel);
                 const reelElement = document.querySelector(`a[href="${reel.href}"]`);
-                if (reelElement) {
-                    createDownloadButton(reelElement, reel.href); // Ensure button is created for new reels
-                }
+                // if (reelElement) {
+                //     createDownloadButton(reelElement, reel.href); // Ensure button is created for new reels
+                // }
             });
 
             const updatedReels = Array.from(existingReelsMap.values());
@@ -40,15 +40,75 @@
             });
         });
     }
+    // ✅ Function to extract and store FB page name
+    function storeFbPageInfo() {
+        const pageName = document.querySelector('h1')?.innerText || '';
+        const url = window.location.href;
+        const slug = window.location.pathname.split('/').filter(Boolean)[0] || '';
+
+        // Get Likes Text
+        const getPageLikesText = () => {
+            const anchorElements = document.querySelectorAll('a');
+            for (let anchor of anchorElements) {
+                const text = anchor.textContent.trim().toLowerCase();
+                if (text.includes('likes')) {
+                    return anchor.textContent.trim(); // e.g. "123,456 likes"
+                }
+            }
+            return null;
+        };
+        const likesText = getPageLikesText();
+
+        // Get Followers Text
+        const getPageFollowersText = () => {
+            const anchorElements = document.querySelectorAll('a');
+            for (let anchor of anchorElements) {
+                const text = anchor.textContent.trim().toLowerCase();
+                if (text.includes('followers')) {
+                    return anchor.textContent.trim(); // e.g. "789,000 followers"
+                }
+            }
+            return null;
+        };
+        const followersText = getPageFollowersText();
+
+        // Get all mask elements
+        const maskElements = document.querySelectorAll('mask');
+        const maskIds = Array.from(maskElements)
+            .map(el => el.getAttribute('id'))
+            .filter(id => id); // Remove null/undefined
+
+        // Get second mask ID
+        const secondMaskId = maskIds[1];
+        let imageUrl = '';
+
+        if (secondMaskId) {
+            const gElement = document.querySelector(`g[mask="url(#${secondMaskId})"]`);
+            const image = gElement?.querySelector('image');
+            imageUrl = image?.getAttribute('xlink:href') || image?.getAttribute('href') || '';
+        }
+
+        const fbPageInfo = { pageName, slug, url, imageUrl, likesText, followersText };
+
+        chrome.storage.local.set({ fbPageInfo }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error storing fbPageInfo:', chrome.runtime.lastError);
+            } else {
+                console.log('FB Page Info stored:', fbPageInfo);
+            }
+        });
+    }
 
     // Function to process reels
+    storeFbPageInfo(); // Extract page info on each processing
     function processReels() {
         console.log('Processing reels!');
+
 
         const reelElements = document.querySelectorAll('a[aria-label="Reel tile preview"]');
 
         if (reelElements.length === 0) {
-            chrome.storage.local.remove('reelsData', function () {
+            chrome.storage.local.remove(['reelsData', 'fbPageInfo'], function () {
                 console.log('No reel elements found. Storage has been reset.');
             });
             return;
@@ -58,7 +118,18 @@
             const href = element.getAttribute('href');
             const imgElement = element.querySelector('img');
             const src = imgElement ? imgElement.getAttribute('src') : null;
-            return { href, src };
+
+            // reels view Find the span elements inside the reel element
+            const spans = element.querySelectorAll('span');
+            let targetSpanText = null;
+
+            spans.forEach(span => {
+                const spanText = span.innerText.trim();  // Get the trimmed text inside the span
+                if (spanText) {
+                    targetSpanText = spanText;  // Store the plain text
+                }
+            });
+            return { href, src, targetSpanText };
         });
 
         storeReelsData(reelsData);
