@@ -240,13 +240,18 @@ document.addEventListener('DOMContentLoaded', function () {
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
 
-            chrome.downloads.download({
-                url: url,
-                filename: `facebook_reels_${Date.now()}.json`,
-                saveAs: true
+            chrome.storage.local.get('fbPageInfo', ({ fbPageInfo }) => {
+                const slug = fbPageInfo?.slug || 'facebook_reels';
+
+                chrome.downloads.download({
+                    url: url,
+                    filename: `${slug}_${Date.now()}.json`,
+                    saveAs: true
+                });
             });
         });
     });
+    // love button functionality
     const loveIcon = document.getElementById('loveIcon');
     const loveBtn = document.getElementById('loveBtn');
 
