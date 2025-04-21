@@ -41,7 +41,7 @@
             </li>
         </ul>
 
-        <div id="facebookContent" class="tab-content mt-4 flex flex-row flex-wrap space-y-8 ">
+        <div id="facebookContent" class="tab-content mt-4 flex flex-row flex-wrap space-y-8 relative">
             <!-- Content for Facebook Pages -->
             <div class="flex items-center space-x-4">
                 <!-- Circular Image -->
@@ -75,7 +75,27 @@
                     ⬇️ Download JSON
                 </button>
             </div>
+            <div>
+                <div class="">
+                    <!-- Love Icon Button -->
+                    <button id="loveBtn"
+                        class="absolute top-2 right-2 text-white border border-black rounded-full p-2 transition"
+                        title="Save this Page Info">
+                        <svg id="loveIcon" xmlns="http://www.w3.org/2000/svg"
+                            class="w-5 h-5 fill-current transition duration-300 ease-in-out transform"
+                            viewBox="0 0 24 24">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6 4 4 6.5 4c1.74 0 
+            3.41 1.01 4.13 2.44h1.75C14.09 5.01 15.76 4 17.5 4 20 4 22 6 
+            22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z">
+                            </path>
+                        </svg>
+                    </button>
 
+
+                </div>
+
+
+            </div>
         </div>
         <div id="instagramContent" class="tab-content mt-4 hidden flex flex-row flex-wrap">
             <!-- Content for Instagram Pages -->

@@ -217,6 +217,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             })
 
+        } else {
+            document.getElementById('fbPageImage').src = 'icons/t.webp';
         }
 
 
@@ -245,4 +247,58 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     });
+    const loveIcon = document.getElementById('loveIcon');
+    const loveBtn = document.getElementById('loveBtn');
+
+    chrome.storage.local.get(['fbPageInfo', 'savedFbPageInfo'], (data) => {
+        const fbPageInfo = data.fbPageInfo;
+        const slug = fbPageInfo?.slug;
+        const savedFbPageInfo = data.savedFbPageInfo || {};
+
+        const isSaved = slug && savedFbPageInfo[slug]?.some(p => p.url === fbPageInfo.url);
+        toggleLoveIcon(isSaved);
+    });
+
+    loveBtn.addEventListener('click', () => {
+        chrome.storage.local.get(['fbPageInfo', 'savedFbPageInfo'], (data) => {
+            const fbPageInfo = data.fbPageInfo;
+            const slug = fbPageInfo?.slug;
+            if (!fbPageInfo || !slug) return;
+
+            let savedFbPageInfo = data.savedFbPageInfo || {};
+            let currentList = savedFbPageInfo[slug] || [];
+
+            const index = currentList.findIndex(p => p.url === fbPageInfo.url);
+
+            const isAlreadySaved = index !== -1;
+
+            if (isAlreadySaved) {
+                currentList.splice(index, 1); // Remove item
+            } else {
+                currentList.push(fbPageInfo); // Save item
+            }
+
+            // Update storage
+            savedFbPageInfo[slug] = currentList;
+            chrome.storage.local.set({ savedFbPageInfo }, () => {
+                toggleLoveIcon(!isAlreadySaved);
+            });
+        });
+    });
+
+    // Helper to update heart icon style
+    function toggleLoveIcon(saved) {
+        loveIcon.classList.remove('scale-125');
+        loveIcon.classList.add('scale-125');
+        setTimeout(() => loveIcon.classList.remove('scale-125'), 300);
+
+        if (saved) {
+            loveIcon.classList.remove('text-white');
+            loveIcon.classList.add('text-red-500');
+        } else {
+            loveIcon.classList.remove('text-red-500');
+            loveIcon.classList.add('text-white');
+        }
+    }
+
 });
