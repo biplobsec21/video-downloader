@@ -48,6 +48,8 @@ document.addEventListener('DOMContentLoaded', function () {
             loadInstagramReels();
         } else if (url.includes('tiktok.com')) {
             enabledTabId = 'tiktokContent';
+            // Load the TikTok reels data
+            loadTikTokReels();
         } else if (url.includes('youtube.com')) {
             enabledTabId = 'youtubeContent';
         }
@@ -182,6 +184,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             } else {
                 document.getElementById('instagramPageImage').style.display = 'none';
+            }
+        });
+    }
+
+    // Function to load TikTok reels data
+    function loadTikTokReels() {
+        chrome.storage.local.get('tiktokPageInfo', ({ tiktokPageInfo }) => {
+            if (tiktokPageInfo) {
+                document.getElementById('tiktokPageName').textContent = tiktokPageInfo.pageName || 'Unnamed Page';
+                document.getElementById('tiktokPageFollowers').textContent = tiktokPageInfo.followersText || '';
+                document.getElementById('tiktokPageFollowing').textContent = tiktokPageInfo.followingText || '';
+                document.getElementById('tiktokPageLikes').textContent = tiktokPageInfo.likesText || '';
+
+                // Handle TikTok page image with CORS handling
+                const tiktokPageImage = document.getElementById('tiktokPageImage');
+                console.log('TikTok Page Info:', tiktokPageInfo);
+                console.log('TikTok Image URL:', tiktokPageInfo.imageUrl);
+
+                const cleanedImageUrl = cleanImageUrl(tiktokPageInfo.imageUrl);
+                console.log('Cleaned TikTok Image URL:', cleanedImageUrl);
+
+                handleCorsImage(tiktokPageImage, cleanedImageUrl, 'icons/t.webp');
+
+                document.getElementById('tiktokPageUrl').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    chrome.storage.local.get('tiktokPageInfo', ({ tiktokPageInfo }) => {
+                        if (tiktokPageInfo?.url) {
+                            chrome.tabs.update({ url: tiktokPageInfo.url });
+                        }
+                    });
+                });
+            } else {
+                document.getElementById('tiktokPageImage').style.display = 'none';
             }
         });
     }
@@ -522,6 +557,129 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             instagramLoveIcon.classList.remove('text-red-500');
             instagramLoveIcon.classList.add('text-white');
+        }
+    }
+
+    // TikTok functionality
+    const collectTikTokBtn = document.getElementById('collectTikTokReelsBtn');
+    const tiktokSummaryDiv = document.getElementById('tiktokReelsSummary');
+    const downloadTikTokBtn = document.getElementById('downloadTikTokJsonBtn');
+
+    let tiktokReelsData = [];
+
+    // Step 1: Collect TikTok reels from chrome.storage.local
+    collectTikTokBtn.addEventListener('click', () => {
+        chrome.storage.local.get(['tiktokReelsData'], async (result) => {
+            tiktokReelsData = result.tiktokReelsData || [];
+
+            if (tiktokReelsData.length === 0) {
+                tiktokSummaryDiv.innerHTML = '⚠️ No TikTok videos data found.';
+                tiktokSummaryDiv.classList.remove('hidden');
+                downloadTikTokBtn.classList.add('hidden');
+                return;
+            }
+
+            // Build summary HTML
+            const firstItems = tiktokReelsData.slice(0, 3).map((reel, idx) => {
+                return `<div class="mb-2 flex items-center space-x-2">
+                        <span class="text-gray-600 text-sm">#${idx + 1}</span>
+                        <img src="${reel.src}" alt="video-img" class="w-10 h-10 object-cover rounded" />
+                        <a href="${reel.href}" target="_blank" class="text-black underline text-sm break-all">${reel.href}</a>
+                    </div>`;
+            }).join('');
+
+            tiktokSummaryDiv.innerHTML = `
+                ✅ Total TikTok Videos Found: <strong>${tiktokReelsData.length}</strong>
+                <div class="mt-2">Preview (example):</div>
+                ${firstItems}
+            `;
+            tiktokSummaryDiv.classList.remove('hidden');
+            downloadTikTokBtn.classList.remove('hidden');
+        });
+    });
+
+    // Step 2: Download TikTok JSON with cookie
+    downloadTikTokBtn.addEventListener('click', () => {
+        chrome.cookies.getAll({ domain: 'tiktok.com' }, (cookies) => {
+            const cookieObj = cookies.reduce((acc, cookie) => {
+                acc[cookie.name] = cookie.value;
+                return acc;
+            }, {});
+
+            chrome.storage.local.get('tiktokPageInfo', ({ tiktokPageInfo }) => {
+                const exportData = {
+                    reels: tiktokReelsData,
+                    cookies: cookieObj,
+                    tiktokPageInfo: tiktokPageInfo,
+                    collectedAt: new Date().toISOString()
+                };
+
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const slug = tiktokPageInfo?.slug || 'tiktok_videos';
+
+                chrome.downloads.download({
+                    url: url,
+                    filename: `${slug}_${Date.now()}.json`,
+                    saveAs: true
+                });
+            });
+        });
+    });
+
+    // TikTok love button functionality
+    const tiktokLoveIcon = document.getElementById('tiktokLoveIcon');
+    const tiktokLoveBtn = document.getElementById('tiktokLoveBtn');
+
+    chrome.storage.local.get(['tiktokPageInfo', 'savedTikTokPageInfo'], (data) => {
+        const tiktokPageInfo = data.tiktokPageInfo;
+        const slug = tiktokPageInfo?.slug;
+        const savedTikTokPageInfo = data.savedTikTokPageInfo || {};
+
+        const isSaved = slug && savedTikTokPageInfo[slug]?.some(p => p.url === tiktokPageInfo.url);
+        toggleTikTokLoveIcon(isSaved);
+    });
+
+    tiktokLoveBtn.addEventListener('click', () => {
+        chrome.storage.local.get(['tiktokPageInfo', 'savedTikTokPageInfo'], (data) => {
+            const tiktokPageInfo = data.tiktokPageInfo;
+            const slug = tiktokPageInfo?.slug;
+            if (!tiktokPageInfo || !slug) return;
+
+            let savedTikTokPageInfo = data.savedTikTokPageInfo || {};
+            let currentList = savedTikTokPageInfo[slug] || [];
+
+            const index = currentList.findIndex(p => p.url === tiktokPageInfo.url);
+
+            const isAlreadySaved = index !== -1;
+
+            if (isAlreadySaved) {
+                currentList.splice(index, 1); // Remove item
+            } else {
+                currentList.push(tiktokPageInfo); // Save item
+            }
+
+            // Update storage
+            savedTikTokPageInfo[slug] = currentList;
+            chrome.storage.local.set({ savedTikTokPageInfo }, () => {
+                toggleTikTokLoveIcon(!isAlreadySaved);
+            });
+        });
+    });
+
+    // Helper to update TikTok heart icon style
+    function toggleTikTokLoveIcon(saved) {
+        tiktokLoveIcon.classList.remove('scale-125');
+        tiktokLoveIcon.classList.add('scale-125');
+        setTimeout(() => tiktokLoveIcon.classList.remove('scale-125'), 300);
+
+        if (saved) {
+            tiktokLoveIcon.classList.remove('text-white');
+            tiktokLoveIcon.classList.add('text-red-500');
+        } else {
+            tiktokLoveIcon.classList.remove('text-red-500');
+            tiktokLoveIcon.classList.add('text-white');
         }
     }
 

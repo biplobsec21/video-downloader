@@ -1,6 +1,7 @@
 (function () {
     let lastCheckedCount = 0; // Track the number of loaded reels
     let lastInstagramCheckedCount = 0; // Track Instagram reels count
+    let lastTikTokCheckedCount = 0; // Track TikTok reels count
 
     // Function to store reels data in chrome.storage.local
     function storeReelsData(reelsData) {
@@ -72,6 +73,41 @@
         }
     }
 
+    // Function to store TikTok reels data
+    function storeTikTokReelsData(tiktokReelsData) {
+        try {
+            if (!chrome || !chrome.storage) {
+                console.log('Chrome storage not available, skipping TikTok storage');
+                return;
+            }
+
+            chrome.storage.local.get('tiktokReelsData', function (result) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error getting tiktokReelsData:', chrome.runtime.lastError);
+                    return;
+                }
+
+                const existingReels = result.tiktokReelsData || [];
+                const existingReelsMap = new Map(existingReels.map(reel => [reel.href, reel]));
+
+                tiktokReelsData.forEach(reel => {
+                    existingReelsMap.set(reel.href, reel);
+                });
+
+                const updatedReels = Array.from(existingReelsMap.values());
+                chrome.storage.local.set({ 'tiktokReelsData': updatedReels }, function () {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error storing tiktokReelsData:', chrome.runtime.lastError);
+                    } else {
+                        console.log('tiktokReelsData stored successfully');
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error in storeTikTokReelsData:', error);
+        }
+    }
+
     // Function to get the Facebook page slug
     function getFbPageSlug() {
         const url = new URL(window.location.href);
@@ -94,6 +130,20 @@
         if (pathnameParts.length > 0) {
             console.log(pathnameParts[0]);
             return pathnameParts[0];
+        }
+        return '';
+    }
+
+    // Function to get the TikTok page slug
+    function getTikTokPageSlug() {
+        const url = new URL(window.location.href);
+        const pathnameParts = url.pathname.split('/').filter(Boolean);
+
+        // TikTok URLs follow pattern: /@username/...
+        if (pathnameParts.length > 0 && pathnameParts[0].startsWith('@')) {
+            const slug = pathnameParts[0].substring(1); // Remove @ symbol
+            console.log('TikTok slug:', slug);
+            return slug;
         }
         return '';
     }
@@ -313,6 +363,86 @@
         }
     }
 
+    // Function to store TikTok page info
+    function storeTikTokPageInfo() {
+        const url = window.location.href;
+        const slug = getTikTokPageSlug();
+
+        // 1. Get profile image from data-e2e="user-avatar"
+        let imageUrl = '';
+        const avatarElement = document.querySelector('[data-e2e="user-avatar"]');
+        if (avatarElement) {
+            const imgElement = avatarElement.querySelector('img');
+            if (imgElement) {
+                imageUrl = imgElement.getAttribute('src');
+            }
+        }
+
+        // 2. Get page title from h1 and h2
+        let pageName = '';
+        const titleElement = document.querySelector('h1[data-e2e="user-title"]');
+        const subtitleElement = document.querySelector('h2[data-e2e="user-subtitle"]');
+
+        if (titleElement) {
+            pageName = titleElement.textContent.trim();
+        }
+        if (subtitleElement) {
+            pageName += ' - ' + subtitleElement.textContent.trim();
+        }
+
+        // 3. Get followers count
+        let followersText = '';
+        const followersElement = document.querySelector('[data-e2e="followers-count"]');
+        if (followersElement) {
+            const followersCount = followersElement.textContent.trim();
+            followersText = "Followers: " + followersCount;
+        }
+
+        // 4. Get following count
+        let followingText = '';
+        const followingElement = document.querySelector('[data-e2e="following-count"]');
+        if (followingElement) {
+            const followingCount = followingElement.textContent.trim();
+            followingText = "Following: " + followingCount;
+        }
+
+        // 5. Get likes count
+        let likesText = '';
+        const likesElement = document.querySelector('[data-e2e="likes-count"]');
+        if (likesElement) {
+            const likesCount = likesElement.textContent.trim();
+            likesText = "Likes: " + likesCount;
+        }
+
+        const tiktokPageInfo = {
+            pageName,
+            slug,
+            url,
+            imageUrl,
+            followersText,
+            followingText,
+            likesText
+        };
+
+        try {
+            if (!chrome || !chrome.storage) {
+                console.log('Chrome storage not available, skipping TikTok page info storage');
+                return;
+            }
+
+            chrome.storage.local.set({ tiktokPageInfo }, () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Error storing tiktokPageInfo:', chrome.runtime.lastError);
+                } else {
+                    console.log('TikTok Page Info stored:', tiktokPageInfo);
+                    console.log('Profile Image URL:', imageUrl);
+                }
+            });
+        } catch (error) {
+            console.error('Error in storeTikTokPageInfo:', error);
+        }
+    }
+
     // Function to process reels
     function processReels() {
         console.log('Processing reels!');
@@ -425,6 +555,56 @@
         } catch (error) {
             console.error('Error in processInstagramReels:', error);
             processCurrentInstagramReels(reelElements, currentSlug);
+        }
+    }
+
+    // Function to process TikTok reels
+    function processTikTokReels() {
+        console.log('Processing TikTok reels!');
+
+        // TikTok reels follow the pattern /@username/video/...
+        // Look for links that contain /video/ in the href
+        const reelElements = document.querySelectorAll('a[href*="/video/"]');
+
+        console.log('Found TikTok reel elements:', reelElements.length);
+        console.log('Page URL:', window.location.href);
+
+        const currentSlug = getTikTokPageSlug();
+
+        // Check if tiktokReelsData exists and has a different slug
+        try {
+            if (!chrome || !chrome.storage) {
+                console.log('Chrome storage not available, processing TikTok reels without storage check');
+                processCurrentTikTokReels(reelElements, currentSlug);
+                return;
+            }
+
+            chrome.storage.local.get('tiktokReelsData', function (result) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error getting tiktokReelsData:', chrome.runtime.lastError);
+                    processCurrentTikTokReels(reelElements, currentSlug);
+                    return;
+                }
+
+                const existingReels = result.tiktokReelsData || [];
+
+                if (existingReels.length > 0 && existingReels[0].reelPageslug !== currentSlug) {
+                    // Clear tiktokReelsData if the slug has changed
+                    chrome.storage.local.set({ tiktokReelsData: [] }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error clearing tiktokReelsData:', chrome.runtime.lastError);
+                        } else {
+                            console.log('Cleared tiktokReelsData due to page change.');
+                        }
+                        processCurrentTikTokReels(reelElements, currentSlug);
+                    });
+                } else {
+                    processCurrentTikTokReels(reelElements, currentSlug);
+                }
+            });
+        } catch (error) {
+            console.error('Error in processTikTokReels:', error);
+            processCurrentTikTokReels(reelElements, currentSlug);
         }
     }
 
@@ -603,6 +783,94 @@
         storeInstagramReelsData(instagramReelsData);
     }
 
+    // Helper function to process current TikTok reels
+    function processCurrentTikTokReels(reelElements, currentSlug) {
+        if (reelElements.length === 0) {
+            try {
+                if (!chrome || !chrome.storage) {
+                    console.log('Chrome storage not available, skipping TikTok storage reset');
+                    return;
+                }
+
+                chrome.storage.local.remove(['tiktokReelsData', 'tiktokPageInfo'], function () {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error removing TikTok storage:', chrome.runtime.lastError);
+                    } else {
+                        console.log('No TikTok reel elements found. Storage has been reset.');
+                    }
+                });
+            } catch (error) {
+                console.error('Error in processCurrentTikTokReels storage reset:', error);
+            }
+            return;
+        }
+
+        storeTikTokPageInfo(); // Update page info
+
+        const tiktokReelsData = Array.from(reelElements).map((element, index) => {
+            const href = element.getAttribute('href');
+            console.log(`Processing TikTok reel ${index + 1}:`, href);
+
+            // Find image in the reel element - look for picture tag first
+            let imgElement = element.querySelector('picture img');
+            let src = null;
+
+            if (imgElement) {
+                src = imgElement.getAttribute('src');
+            } else {
+                // Fallback: look for direct img tag
+                imgElement = element.querySelector('img');
+                if (imgElement) {
+                    src = imgElement.getAttribute('src');
+                }
+            }
+
+            // Get video ID from href (e.g., "7539856708861054215" from "/@voicequeenputul/video/7539856708861054215")
+            const videoId = href ? href.split('/').pop() : '';
+
+            // Get likes count if available
+            let likesElement = element.querySelector('[data-e2e*="like"], [data-e2e*="Like"]');
+            const likesText = likesElement ? likesElement.textContent.trim() : '';
+
+            // Get comments count if available
+            let commentsElement = element.querySelector('[data-e2e*="comment"], [data-e2e*="Comment"]');
+            const commentsText = commentsElement ? commentsElement.textContent.trim() : '';
+
+            // Get shares count if available
+            let sharesElement = element.querySelector('[data-e2e*="share"], [data-e2e*="Share"]');
+            const sharesText = sharesElement ? sharesElement.textContent.trim() : '';
+
+            const reelPage = document.querySelector('h1[data-e2e="user-title"]')?.textContent.trim() || '';
+            const reelUrl = window.location.href;
+            const reelPageslug = currentSlug;
+
+            // Log the found data for debugging
+            console.log(`TikTok Reel ${index + 1} data:`, {
+                href,
+                src: src ? 'Found' : 'Not found',
+                videoId,
+                likesText: likesText ? 'Found' : 'Not found',
+                commentsText: commentsText ? 'Found' : 'Not found',
+                sharesText: sharesText ? 'Found' : 'Not found'
+            });
+
+            return {
+                href,
+                src,
+                videoId,
+                likesText,
+                commentsText,
+                sharesText,
+                reelPage,
+                reelUrl,
+                reelPageslug
+            };
+        });
+
+        console.log('Processed TikTok reels data:', tiktokReelsData);
+        storeTikTokReelsData(tiktokReelsData);
+    }
+
     // MutationObserver to watch for new reel elements
     const observer = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
@@ -621,6 +889,14 @@
                     console.log('Instagram reels count changed:', lastInstagramCheckedCount);
                     processInstagramReels();
                 }
+
+                // Check for TikTok reels
+                const tiktokReelElements = document.querySelectorAll('a[href*="/video/"]');
+                if (tiktokReelElements.length !== lastTikTokCheckedCount) {
+                    lastTikTokCheckedCount = tiktokReelElements.length;
+                    console.log('TikTok reels count changed:', lastTikTokCheckedCount);
+                    processTikTokReels();
+                }
             }
         }
     });
@@ -630,11 +906,13 @@
     window.addEventListener('load', () => {
         console.log('Initial page load complete!');
 
-        // Check if we're on Facebook or Instagram
+        // Check if we're on Facebook, Instagram, or TikTok
         if (window.location.hostname.includes('facebook.com')) {
             processReels(); // Capture Facebook reels on initial load
         } else if (window.location.hostname.includes('instagram.com')) {
             processInstagramReels(); // Capture Instagram reels on initial load
+        } else if (window.location.hostname.includes('tiktok.com')) {
+            processTikTokReels(); // Capture TikTok reels on initial load
         }
     });
 
@@ -647,12 +925,15 @@
             console.log('URL changed, reprocessing reels.');
             lastCheckedCount = 0; // Reset count to ensure reprocessing
             lastInstagramCheckedCount = 0; // Reset Instagram count
+            lastTikTokCheckedCount = 0; // Reset TikTok count
 
             // Check which platform we're on
             if (window.location.hostname.includes('facebook.com')) {
                 processReels();
             } else if (window.location.hostname.includes('instagram.com')) {
                 processInstagramReels();
+            } else if (window.location.hostname.includes('tiktok.com')) {
+                processTikTokReels();
             }
         }
     }).observe(document, { subtree: true, childList: true });
