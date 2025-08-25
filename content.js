@@ -2,6 +2,7 @@
     let lastCheckedCount = 0; // Track the number of loaded reels
     let lastInstagramCheckedCount = 0; // Track Instagram reels count
     let lastTikTokCheckedCount = 0; // Track TikTok reels count
+    let lastYouTubeCheckedCount = 0; // Track YouTube videos count
 
     // Function to store reels data in chrome.storage.local
     function storeReelsData(reelsData) {
@@ -108,6 +109,41 @@
         }
     }
 
+    // Function to store YouTube videos data
+    function storeYouTubeVideosData(youtubeVideosData) {
+        try {
+            if (!chrome || !chrome.storage) {
+                console.log('Chrome storage not available, skipping YouTube storage');
+                return;
+            }
+
+            chrome.storage.local.get('youtubeVideosData', function (result) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error getting youtubeVideosData:', chrome.runtime.lastError);
+                    return;
+                }
+
+                const existingVideos = result.youtubeVideosData || [];
+                const existingVideosMap = new Map(existingVideos.map(video => [video.href, video]));
+
+                youtubeVideosData.forEach(video => {
+                    existingVideosMap.set(video.href, video);
+                });
+
+                const updatedVideos = Array.from(existingVideosMap.values());
+                chrome.storage.local.set({ 'youtubeVideosData': updatedVideos }, function () {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error storing youtubeVideosData:', chrome.runtime.lastError);
+                    } else {
+                        console.log('youtubeVideosData stored successfully');
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error in storeYouTubeVideosData:', error);
+        }
+    }
+
     // Function to get the Facebook page slug
     function getFbPageSlug() {
         const url = new URL(window.location.href);
@@ -146,6 +182,34 @@
             return slug;
         }
         return '';
+    }
+
+    // Function to get the YouTube page slug
+    function getYouTubePageSlug() {
+        const url = new URL(window.location.href);
+        const pathnameParts = url.pathname.split('/').filter(Boolean);
+
+        // YouTube URLs follow pattern: /@username/... or /c/username/...
+        if (pathnameParts.length > 0 && pathnameParts[0].startsWith('@')) {
+            const slug = pathnameParts[0].substring(1); // Remove @ symbol
+            console.log('YouTube slug:', slug);
+            return slug;
+        } else if (pathnameParts.length > 1 && pathnameParts[0] === 'c') {
+            const slug = pathnameParts[1];
+            console.log('YouTube slug (c/):', slug);
+            return slug;
+        }
+        return '';
+    }
+
+    function isYouTubeChannelVideosPage() {
+        try {
+            const url = new URL(window.location.href);
+            // Match /@channel/videos optionally trailing slash
+            return url.hostname.includes('youtube.com') && /^\/@[^/]+\/videos\/?$/.test(url.pathname);
+        } catch (e) {
+            return false;
+        }
     }
 
     // Function to store Facebook page info
@@ -443,6 +507,79 @@
         }
     }
 
+    // Function to store YouTube page info
+    function storeYouTubePageInfo() {
+        const url = window.location.href;
+        const slug = getYouTubePageSlug();
+
+        // 1. Get page name from h1 > span first text
+        let pageName = '';
+        const h1Element = document.querySelector('#page-header h1');
+        if (h1Element) {
+            const firstSpan = h1Element.querySelector('span');
+            if (firstSpan) {
+                pageName = firstSpan.textContent.trim();
+                // Clean up the page name by removing extra text after the main name
+                pageName = pageName.split(',')[0].trim();
+            }
+        }
+
+        // 2. Get profile image from avatar element
+        let imageUrl = '';
+        const avatarElement = document.querySelector('#page-header img');
+        if (avatarElement) {
+            imageUrl = avatarElement.getAttribute('src');
+        }
+
+        // 3. Get subscribers count - look for text containing "subscribers"
+        let subscribersText = '';
+        const allSpans = document.querySelectorAll('span');
+        for (let span of allSpans) {
+            const text = span.textContent.trim();
+            if (text.includes('subscribers')) {
+                subscribersText = "Subscribers: " + text;
+                break;
+            }
+        }
+
+        // 4. Get videos count - look for text containing "videos" after subscribers
+        let videosText = '';
+        for (let span of allSpans) {
+            const text = span.textContent.trim();
+            if (text.includes('videos')) {
+                videosText = "Videos: " + text;
+                break;
+            }
+        }
+
+        const youtubePageInfo = {
+            pageName,
+            slug,
+            url,
+            imageUrl,
+            subscribersText,
+            videosText
+        };
+
+        try {
+            if (!chrome || !chrome.storage) {
+                console.log('Chrome storage not available, skipping YouTube page info storage');
+                return;
+            }
+
+            chrome.storage.local.set({ youtubePageInfo }, () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Error storing youtubePageInfo:', chrome.runtime.lastError);
+                } else {
+                    console.log('YouTube Page Info stored:', youtubePageInfo);
+                    console.log('Profile Image URL:', imageUrl);
+                }
+            });
+        } catch (error) {
+            console.error('Error in storeYouTubePageInfo:', error);
+        }
+    }
+
     // Function to process reels
     function processReels() {
         console.log('Processing reels!');
@@ -605,6 +742,72 @@
         } catch (error) {
             console.error('Error in processTikTokReels:', error);
             processCurrentTikTokReels(reelElements, currentSlug);
+        }
+    }
+
+    // Function to process YouTube videos
+    function processYouTubeVideos() {
+        console.log('Processing YouTube videos!');
+
+        if (!isYouTubeChannelVideosPage()) {
+            console.log('Not a channel /@handle/videos page. Clearing YouTube storage.');
+            try {
+                if (chrome && chrome.storage) {
+                    chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo'], function () {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error clearing YouTube storage:', chrome.runtime.lastError);
+                        } else {
+                            console.log('YouTube storage cleared because URL is not /@channel/videos');
+                        }
+                    });
+                }
+            } catch (e) { }
+            return; // Do not process
+        }
+
+        // YouTube videos follow the pattern /watch?v=...
+        // Look for links that contain /watch?v= in the href
+        const videoElements = document.querySelectorAll('a[href*="/watch?v="]');
+
+        console.log('Found YouTube video elements:', videoElements.length);
+        console.log('Page URL:', window.location.href);
+
+        const currentSlug = getYouTubePageSlug();
+
+        // Check if youtubeVideosData exists and has a different slug
+        try {
+            if (!chrome || !chrome.storage) {
+                console.log('Chrome storage not available, processing YouTube videos without storage check');
+                processCurrentYouTubeVideos(videoElements, currentSlug);
+                return;
+            }
+
+            chrome.storage.local.get('youtubeVideosData', function (result) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error getting youtubeVideosData:', chrome.runtime.lastError);
+                    processCurrentYouTubeVideos(videoElements, currentSlug);
+                    return;
+                }
+
+                const existingVideos = result.youtubeVideosData || [];
+
+                if (existingVideos.length > 0 && existingVideos[0].videoPageslug !== currentSlug) {
+                    // Clear youtubeVideosData if the slug has changed
+                    chrome.storage.local.set({ youtubeVideosData: [] }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Error clearing youtubeVideosData:', chrome.runtime.lastError);
+                        } else {
+                            console.log('Cleared youtubeVideosData due to page change.');
+                        }
+                        processCurrentYouTubeVideos(videoElements, currentSlug);
+                    });
+                } else {
+                    processCurrentYouTubeVideos(videoElements, currentSlug);
+                }
+            });
+        } catch (error) {
+            console.error('Error in processYouTubeVideos:', error);
+            processCurrentYouTubeVideos(videoElements, currentSlug);
         }
     }
 
@@ -871,6 +1074,109 @@
         storeTikTokReelsData(tiktokReelsData);
     }
 
+    // Helper function to process current YouTube videos
+    function processCurrentYouTubeVideos(videoElements, currentSlug) {
+        if (videoElements.length === 0) {
+            try {
+                if (!chrome || !chrome.storage) {
+                    console.log('Chrome storage not available, skipping YouTube storage reset');
+                    return;
+                }
+
+                chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo'], function () {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error removing YouTube storage:', chrome.runtime.lastError);
+                    } else {
+                        console.log('No YouTube video elements found. Storage has been reset.');
+                    }
+                });
+            } catch (error) {
+                console.error('Error in processCurrentYouTubeVideos storage reset:', error);
+            }
+            return;
+        }
+
+        storeYouTubePageInfo(); // Update page info
+
+        const youtubeVideosData = Array.from(videoElements).map((element, index) => {
+            const href = element.getAttribute('href');
+            console.log(`Processing YouTube video ${index + 1}:`, href);
+
+            // Get video ID from href (e.g., "dQw4w9WgXcQ" from "/watch?v=dQw4w9WgXcQ")
+            const videoId = href ? href.split('?v=').pop() : '';
+
+            // Get video title from the element or nearby elements
+            let videoTitle = '';
+            const titleElement = element.querySelector('h3, h4, [title]') || element.closest('div').querySelector('h3, h4, [title]');
+            if (titleElement) {
+                videoTitle = titleElement.textContent.trim() || titleElement.getAttribute('title') || '';
+            }
+
+            // Get video thumbnail URL
+            let thumbnailUrl = '';
+            // const rendererContainer = element.closest('ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, ytd-video-renderer');
+            // let thumbnailElement = rendererContainer ? rendererContainer.querySelector('ytd-thumbnail yt-image img, ytd-thumbnail img') : null;
+            // if (!thumbnailElement) {
+            //     // Fallbacks if structure differs
+            //     thumbnailElement = (rendererContainer || document).querySelector('a#thumbnail yt-image img, a#thumbnail img');
+            // }
+            // if (!thumbnailElement) {
+            //     thumbnailElement = element.querySelector('yt-image img, img');
+            // }
+            // if (thumbnailElement) {
+            //     thumbnailUrl = thumbnailElement.getAttribute('src') || thumbnailElement.getAttribute('data-thumb') || thumbnailElement.getAttribute('data-src') || '';
+            // } else {
+            thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+            // }
+
+            // Get views count - look for text containing "view" or "views"
+            let viewsText = '';
+            const viewsElement = element.querySelector('span, div');
+            if (viewsElement) {
+                const text = viewsElement.textContent.trim();
+                if (text.includes('view') || text.includes('View')) {
+                    viewsText = text;
+                }
+            }
+
+            // Get video duration if available
+            let durationText = '';
+            const durationElement = element.querySelector('[aria-label*="duration"], [aria-label*="Duration"]');
+            if (durationElement) {
+                durationText = durationElement.getAttribute('aria-label') || '';
+            }
+
+            const videoPage = document.querySelector('h1')?.innerText || '';
+            const videoUrl = window.location.href;
+            const videoPageslug = currentSlug;
+
+            // Log the found data for debugging
+            console.log(`YouTube Video ${index + 1} data:`, {
+                href,
+                videoId,
+                videoTitle: videoTitle ? 'Found' : 'Not found',
+                thumbnailUrl: thumbnailUrl ? 'Found' : 'Not found',
+                viewsText: viewsText ? 'Found' : 'Not found',
+                durationText: durationText ? 'Found' : 'Not found'
+            });
+
+            return {
+                href,
+                videoId,
+                videoTitle,
+                thumbnailUrl,
+                viewsText,
+                durationText,
+                videoPage,
+                videoUrl,
+                videoPageslug
+            };
+        });
+
+        console.log('Processed YouTube videos data:', youtubeVideosData);
+        storeYouTubeVideosData(youtubeVideosData);
+    }
+
     // MutationObserver to watch for new reel elements
     const observer = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
@@ -897,6 +1203,14 @@
                     console.log('TikTok reels count changed:', lastTikTokCheckedCount);
                     processTikTokReels();
                 }
+
+                // Check for YouTube videos
+                const youtubeVideoElements = document.querySelectorAll('a[href*="/watch?v="]');
+                if (youtubeVideoElements.length !== lastYouTubeCheckedCount) {
+                    lastYouTubeCheckedCount = youtubeVideoElements.length;
+                    console.log('YouTube videos count changed:', lastYouTubeCheckedCount);
+                    processYouTubeVideos();
+                }
             }
         }
     });
@@ -906,13 +1220,27 @@
     window.addEventListener('load', () => {
         console.log('Initial page load complete!');
 
-        // Check if we're on Facebook, Instagram, or TikTok
+        // Check if we're on Facebook, Instagram, TikTok, or YouTube
         if (window.location.hostname.includes('facebook.com')) {
             processReels(); // Capture Facebook reels on initial load
+            // Clear YouTube storage when not on YouTube
+            try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
         } else if (window.location.hostname.includes('instagram.com')) {
             processInstagramReels(); // Capture Instagram reels on initial load
+            try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
         } else if (window.location.hostname.includes('tiktok.com')) {
             processTikTokReels(); // Capture TikTok reels on initial load
+            try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
+        } else if (window.location.hostname.includes('youtube.com')) {
+            if (isYouTubeChannelVideosPage()) {
+                processYouTubeVideos(); // Capture YouTube videos on initial load
+            } else {
+                // Clear if not on channel videos page
+                try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
+            }
+        } else {
+            // Any other site: clear YouTube
+            try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
         }
     });
 
@@ -926,15 +1254,50 @@
             lastCheckedCount = 0; // Reset count to ensure reprocessing
             lastInstagramCheckedCount = 0; // Reset Instagram count
             lastTikTokCheckedCount = 0; // Reset TikTok count
+            lastYouTubeCheckedCount = 0; // Reset YouTube count
 
             // Check which platform we're on
             if (window.location.hostname.includes('facebook.com')) {
                 processReels();
+                try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
             } else if (window.location.hostname.includes('instagram.com')) {
                 processInstagramReels();
+                try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
             } else if (window.location.hostname.includes('tiktok.com')) {
                 processTikTokReels();
+                try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
+            } else if (window.location.hostname.includes('youtube.com')) {
+                if (isYouTubeChannelVideosPage()) {
+                    processYouTubeVideos();
+                } else {
+                    // Clear storage if not on /@handle/videos
+                    try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
+                }
+            } else {
+                // Any other site: clear YouTube storage
+                try { chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']); } catch (e) { }
             }
         }
     }).observe(document, { subtree: true, childList: true });
+
+    // Listen for messages from popup
+    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+        console.log('Message received in content script:', request);
+
+        if (request.action === 'collectReels') {
+            processReels();
+            sendResponse({ success: true, message: 'Facebook reels collection started' });
+        } else if (request.action === 'collectInstagramReels') {
+            processInstagramReels();
+            sendResponse({ success: true, message: 'Instagram reels collection started' });
+        } else if (request.action === 'collectTikTokReels') {
+            processTikTokReels();
+            sendResponse({ success: true, message: 'TikTok reels collection started' });
+        } else if (request.action === 'collectYouTubeVideos') {
+            processYouTubeVideos();
+            sendResponse({ success: true, message: 'YouTube videos collection started' });
+        }
+
+        return true; // Keep the message channel open for async response
+    });
 })();

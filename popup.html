@@ -85,7 +85,7 @@
     </style>
 </head>
 
-<body class="bg-gray-100 p-4" style="width: 500px;">
+<body class="bg-gray-100 p-4" style="width: 540px;">
     <div>
         <ul class="flex border-b bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-lg p-1">
             <li class="mr-1">
@@ -103,7 +103,7 @@
             </li>
             <li class="mr-1">
                 <a href="#instagram"
-                    class="tab-link bg-white inline-block py-3 px-6 text-gray-600 hover:text-pink-500 font-semibold rounded-t-lg shadow-sm"
+                    class="tab-link bg-white inline-block py-3 px-6 text-pink-600 hover:text-pink-500 font-semibold rounded-t-lg shadow-sm border-b-2 border-pink-500 "
                     data-target="instagramContent">
                     <span class="flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -116,7 +116,7 @@
             </li>
             <li class="mr-1">
                 <a href="#tiktok"
-                    class="tab-link bg-white inline-block py-3 px-6 text-gray-600 hover:text-black font-semibold rounded-t-lg shadow-sm"
+                    class="tab-link bg-white inline-block py-3 px-6 text-black hover:text-gray-800 font-semibold rounded-t-lg shadow-sm border-b-2 border-black"
                     data-target="tiktokContent">
                     <span class="flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@
             </li>
             <li class="mr-1">
                 <a href="#youtube"
-                    class="tab-link bg-white inline-block py-3 px-6 text-gray-600 hover:text-red-500 font-semibold rounded-t-lg shadow-sm"
+                    class="tab-link bg-white inline-block py-3 px-6 border-b-2 text-red-600 !important border-red-500 !important hover:text-red-500 font-semibold rounded-t-lg shadow-sm "
                     data-target="youtubeContent">
                     <span class="flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -308,9 +308,63 @@
                 </div>
             </div>
         </div>
-        <div id="youtubeContent" class="tab-content mt-4 hidden flex flex-row flex-wrap">
+        <div id="youtubeContent" class="tab-content mt-4 hidden flex flex-row flex-wrap space-y-8 relative">
             <!-- Content for Youtube Pages -->
-            <p>This is the content for Youtube Pages.</p>
+            <div class="flex items-center space-x-4">
+                <!-- Circular Image -->
+                <img id="youtubePageImage" src="" alt="YouTube Page"
+                    class="w-24 h-24 rounded-full object-cover shadow" />
+
+                <div>
+                    <!-- Page Name -->
+                    <a id="youtubePageUrl" href="#" class="text-red-500 underline cursor-pointer">
+                        <h2 id="youtubePageName" class="text-lg font-semibold text-gray-800"></h2>
+                    </a>
+                    <!-- Subscribers + Videos -->
+                    <p class="text-sm text-gray-500">
+                        <span id="youtubePageSubscribers" class="mr-4"></span>
+                        <span id="youtubePageVideos"></span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-3 w-full">
+                <button id="collectYouTubeVideosBtn"
+                    class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105">
+                    🎥 Collect YouTube Videos
+                </button>
+
+                <div id="youtubeVideosSummary"
+                    class="hidden bg-white rounded-lg p-4 border border-gray-200 text-gray-700 text-sm shadow-sm">
+                    <!-- Summary will be injected here -->
+                </div>
+
+                <button id="downloadYouTubeJsonBtn"
+                    class="hidden bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105">
+                    ⬇️ Download YouTube JSON
+                </button>
+            </div>
+
+            <!-- YouTube thumbnails grid -->
+            <div id="youtubeGrid" class="w-full flex flex-wrap -m-2"></div>
+
+            <div>
+                <div class="">
+                    <!-- Love Icon Button -->
+                    <button id="youtubeLoveBtn"
+                        class="absolute top-2 right-2 text-white border border-black rounded-full p-2 transition-all duration-300 hover:bg-red-100"
+                        title="Save this YouTube Page Info">
+                        <svg id="youtubeLoveIcon" xmlns="http://www.w3.org/2000/svg"
+                            class="w-5 h-5 fill-current transition duration-300 ease-in-out transform"
+                            viewBox="0 0 24 24">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6 4 4 6.5 4c1.74 0 
+            3.41 1.01 4.13 2.44h1.75C14.09 5.01 15.76 4 17.5 4 20 4 22 6 
+            22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     <!-- Add this inside the popup.html file -->

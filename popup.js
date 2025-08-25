@@ -51,7 +51,17 @@ document.addEventListener('DOMContentLoaded', function () {
             // Load the TikTok reels data
             loadTikTokReels();
         } else if (url.includes('youtube.com')) {
-            enabledTabId = 'youtubeContent';
+            // Only enable if matches /@handle/videos
+            const isChannelVideos = /\/\@[^/]+\/videos\/?$/.test(new URL(url).pathname);
+            if (isChannelVideos) {
+                enabledTabId = 'youtubeContent';
+                loadYouTubeData();
+            } else {
+                // Clear any stale YouTube storage and keep tab disabled
+                try {
+                    chrome.storage.local.remove(['youtubeVideosData', 'youtubePageInfo']);
+                } catch (e) { }
+            }
         }
 
         tabLinks.forEach(link => {
@@ -190,34 +200,63 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Function to load TikTok reels data
     function loadTikTokReels() {
-        chrome.storage.local.get('tiktokPageInfo', ({ tiktokPageInfo }) => {
-            if (tiktokPageInfo) {
-                document.getElementById('tiktokPageName').textContent = tiktokPageInfo.pageName || 'Unnamed Page';
-                document.getElementById('tiktokPageFollowers').textContent = tiktokPageInfo.followersText || '';
-                document.getElementById('tiktokPageFollowing').textContent = tiktokPageInfo.followingText || '';
-                document.getElementById('tiktokPageLikes').textContent = tiktokPageInfo.likesText || '';
+        chrome.storage.local.get(['tiktokReelsData', 'tiktokPageInfo'], function (data) {
+            const reels = data.tiktokReelsData || [];
+            const pageInfo = data.tiktokPageInfo || {};
 
-                // Handle TikTok page image with CORS handling
-                const tiktokPageImage = document.getElementById('tiktokPageImage');
-                console.log('TikTok Page Info:', tiktokPageInfo);
-                console.log('TikTok Image URL:', tiktokPageInfo.imageUrl);
-
-                const cleanedImageUrl = cleanImageUrl(tiktokPageInfo.imageUrl);
-                console.log('Cleaned TikTok Image URL:', cleanedImageUrl);
-
-                handleCorsImage(tiktokPageImage, cleanedImageUrl, 'icons/t.webp');
-
-                document.getElementById('tiktokPageUrl').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    chrome.storage.local.get('tiktokPageInfo', ({ tiktokPageInfo }) => {
-                        if (tiktokPageInfo?.url) {
-                            chrome.tabs.update({ url: tiktokPageInfo.url });
-                        }
-                    });
-                });
-            } else {
-                document.getElementById('tiktokPageImage').style.display = 'none';
+            // Update page info
+            if (pageInfo.pageName) {
+                document.getElementById('tiktokPageName').textContent = pageInfo.pageName;
             }
+            if (pageInfo.url) {
+                document.getElementById('tiktokPageUrl').href = pageInfo.url;
+            }
+            if (pageInfo.imageUrl) {
+                document.getElementById('tiktokPageImage').src = pageInfo.imageUrl;
+            }
+            if (pageInfo.followersText) {
+                document.getElementById('tiktokPageFollowers').textContent = pageInfo.followersText;
+            }
+            if (pageInfo.followingText) {
+                document.getElementById('tiktokPageFollowing').textContent = pageInfo.followingText;
+            }
+            if (pageInfo.likesText) {
+                document.getElementById('tiktokPageLikes').textContent = pageInfo.likesText;
+            }
+
+            // Show summary if reels exist
+
+        });
+    }
+
+    // Function to load YouTube page info and videos data
+    function loadYouTubeData() {
+        chrome.storage.local.get(['youtubeVideosData', 'youtubePageInfo'], function (data) {
+            const videos = data.youtubeVideosData || [];
+            const pageInfo = data.youtubePageInfo || {};
+
+            // Update page info
+            if (pageInfo.pageName) {
+                document.getElementById('youtubePageName').textContent = pageInfo.pageName;
+            }
+            if (pageInfo.url) {
+                document.getElementById('youtubePageUrl').href = pageInfo.url;
+            }
+            if (pageInfo.imageUrl) {
+                document.getElementById('youtubePageImage').src = pageInfo.imageUrl;
+            }
+            if (pageInfo.subscribersText) {
+                document.getElementById('youtubePageSubscribers').textContent = pageInfo.subscribersText;
+            }
+            if (pageInfo.videosText) {
+                document.getElementById('youtubePageVideos').textContent = pageInfo.videosText;
+            }
+
+            // Render grid of thumbnails
+            const grid = document.getElementById('youtubeGrid');
+            grid.innerHTML = '';
+
+
         });
     }
 
@@ -682,5 +721,102 @@ document.addEventListener('DOMContentLoaded', function () {
             tiktokLoveIcon.classList.add('text-white');
         }
     }
+
+    // Add event listeners for TikTok buttons
+    document.getElementById('collectTikTokReelsBtn').addEventListener('click', function () {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'collectTikTokReels' }, function (response) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error sending message:', chrome.runtime.lastError);
+                    return;
+                }
+                console.log('TikTok reels collection response:', response);
+                // Reload TikTok data after collection
+                setTimeout(() => {
+                    loadTikTokReels();
+                }, 1000);
+            });
+        });
+    });
+
+    document.getElementById('downloadTikTokJsonBtn').addEventListener('click', function () {
+        chrome.storage.local.get(['tiktokReelsData', 'tiktokPageInfo'], function (data) {
+            const jsonData = {
+                platform: 'TikTok',
+                pageInfo: data.tiktokPageInfo || {},
+                videos: data.tiktokReelsData || [],
+                collectedAt: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tiktok_data_${jsonData.pageInfo.slug || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    });
+
+    // Add event listeners for YouTube buttons
+    document.getElementById('collectYouTubeVideosBtn').addEventListener('click', function () {
+        const summary = document.getElementById('youtubeVideosSummary');
+        const downloadBtn = document.getElementById('downloadYouTubeJsonBtn');
+        chrome.storage.local.get(['youtubeVideosData', 'youtubePageInfo'], function (data) {
+            const videos = data.youtubeVideosData || [];
+            const pageInfo = data.youtubePageInfo || {};
+
+            if (videos.length === 0) {
+                summary.innerHTML = '⚠️ No YouTube videos data found.';
+                summary.classList.remove('hidden');
+                downloadBtn.classList.add('hidden');
+                return;
+            }
+
+            // Build summary HTML (first 3 items)
+            const firstItems = videos.slice(0, 3).map((video, idx) => {
+                const fullUrl = video.href?.startsWith('http') ? video.href : `https://www.youtube.com${video.href || ''}`;
+                return `<div class="mb-2 flex items-center space-x-2">
+                        <span class="text-gray-600 text-sm">#${idx + 1}</span>
+                        <img src="${video.thumbnailUrl || ''}" alt="yt-thumb" class="w-10 h-10 object-cover rounded" />
+                        <a href="${fullUrl}" target="_blank" class="text-red-500 underline text-sm break-all">${fullUrl}</a>
+                    </div>`;
+            }).join('');
+
+            summary.innerHTML = `
+                ✅ Total Videos Found: <strong>${videos.length}</strong>
+                <div class="mt-2">Preview (example):</div>
+                ${firstItems}
+            `;
+            summary.classList.remove('hidden');
+            downloadBtn.classList.remove('hidden');
+
+            // Also refresh the grid beneath
+            loadYouTubeData();
+        });
+    });
+
+    document.getElementById('downloadYouTubeJsonBtn').addEventListener('click', function () {
+        chrome.storage.local.get(['youtubeVideosData', 'youtubePageInfo'], function (data) {
+            const jsonData = {
+                platform: 'YouTube',
+                pageInfo: data.youtubePageInfo || {},
+                videos: data.youtubeVideosData || [],
+                collectedAt: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `youtube_data_${jsonData.pageInfo.slug || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    });
 
 });
