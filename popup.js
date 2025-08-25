@@ -126,13 +126,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to handle CORS-blocked images
     function handleCorsImage(imageElement, imageUrl, fallbackSrc = 'icons/t.webp') {
         if (!imageUrl) {
-            imageElement.src = fallbackSrc;
+            // Hide the image element if no URL is provided
+            imageElement.style.display = 'none';
             return;
         }
 
         // For social media images, we'll use a simple approach
-        // Since CORS blocks direct loading, we'll use the fallback immediately
-        // and log the issue for debugging
+        // Since CORS blocks direct loading, we'll hide the image instead of showing fallback
         console.log('Attempting to load image:', imageUrl);
 
         // Try to load the image directly first
@@ -141,14 +141,15 @@ document.addEventListener('DOMContentLoaded', function () {
         // Set up error handling for CORS issues
         imageElement.onerror = function () {
             console.log('Image failed to load due to CORS or other issues:', imageUrl);
-            console.log('Using fallback image instead');
-            imageElement.src = fallbackSrc;
+            console.log('Hiding image element instead of showing fallback');
+            imageElement.style.display = 'none';
             imageElement.onerror = null; // Prevent infinite loop
         };
 
         // Set up success handler
         imageElement.onload = function () {
             console.log('Image loaded successfully');
+            imageElement.style.display = 'block'; // Ensure image is visible
         };
     }
 
@@ -180,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 });
             } else {
-                document.getElementById('instagramPageImage').src = 'icons/t.webp';
+                document.getElementById('instagramPageImage').style.display = 'none';
             }
         });
     }
@@ -313,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
 
         } else {
-            document.getElementById('fbPageImage').src = 'icons/t.webp';
+            document.getElementById('fbPageImage').style.display = 'none';
         }
 
     });

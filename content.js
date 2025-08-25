@@ -192,16 +192,25 @@
         if (header) {
             const followersLink = header.querySelector('a[href*="/followers/"]');
             if (followersLink) {
-                // Navigate through the nested span structure: a > span > span[title] > span
-                const titleSpan = followersLink.querySelector('span[title]');
-                if (titleSpan) {
-                    // Get the value from title attribute
-                    followersText = titleSpan.getAttribute('title') || '';
+                // Get the top-level span that contains the full text like "11.4K followers"
+                const topSpan = followersLink.querySelector('span');
+                if (topSpan) {
+                    const fullText = topSpan.textContent.trim();
+                    console.log('Full followers text:', fullText);
+
+                    // Extract the number part (e.g., "11.4K" from "11.4K followers")
+                    const match = fullText.match(/^[\d.,]+[KMB]?/);
+                    if (match) {
+                        followersText = "Followers: " + match[0];
+                        console.log('Extracted followers number:', followersText);
+                    } else {
+                        followersText = fullText;
+                    }
                 } else {
-                    // Fallback: get text content from the nested span structure
-                    const nestedSpan = followersLink.querySelector('span span span');
-                    if (nestedSpan) {
-                        followersText = nestedSpan.textContent.trim();
+                    // Fallback: look for the span with title attribute
+                    const titleSpan = followersLink.querySelector('span[title]');
+                    if (titleSpan) {
+                        followersText = titleSpan.getAttribute('title') || '';
                     }
                 }
             }
@@ -212,13 +221,25 @@
         if (header) {
             const followingLink = header.querySelector('a[href*="/following/"]');
             if (followingLink) {
-                const titleSpan = followingLink.querySelector('span[title]');
-                if (titleSpan) {
-                    followingText = titleSpan.getAttribute('title') || '';
+                // Get the top-level span that contains the full text like "500 following"
+                const topSpan = followingLink.querySelector('span');
+                if (topSpan) {
+                    const fullText = topSpan.textContent.trim();
+                    console.log('Full following text:', fullText);
+
+                    // Extract the number part (e.g., "500" from "500 following")
+                    const match = fullText.match(/^[\d.,]+[KMB]?/);
+                    if (match) {
+                        followingText = "Following: " + match[0];
+                        console.log('Extracted following number:', followingText);
+                    } else {
+                        followingText = fullText;
+                    }
                 } else {
-                    const nestedSpan = followingLink.querySelector('span span span');
-                    if (nestedSpan) {
-                        followingText = nestedSpan.textContent.trim();
+                    // Fallback: look for the span with title attribute
+                    const titleSpan = followingLink.querySelector('span[title]');
+                    if (titleSpan) {
+                        followingText = titleSpan.getAttribute('title') || '';
                     }
                 }
             }
@@ -229,13 +250,25 @@
         if (header) {
             const postsLink = header.querySelector('a[href*="/posts/"]');
             if (postsLink) {
-                const titleSpan = postsLink.querySelector('span[title]');
-                if (titleSpan) {
-                    postsText = titleSpan.getAttribute('title') || '';
+                // Get the top-level span that contains the full text like "150 posts"
+                const topSpan = postsLink.querySelector('span');
+                if (topSpan) {
+                    const fullText = topSpan.textContent.trim();
+                    console.log('Full posts text:', fullText);
+
+                    // Extract the number part (e.g., "150" from "150 posts")
+                    const match = fullText.match(/^[\d.,]+[KMB]?/);
+                    if (match) {
+                        postsText = match[0];
+                        console.log('Extracted posts number:', postsText);
+                    } else {
+                        postsText = fullText;
+                    }
                 } else {
-                    const nestedSpan = postsLink.querySelector('span span span');
-                    if (nestedSpan) {
-                        postsText = nestedSpan.textContent.trim();
+                    // Fallback: look for the span with title attribute
+                    const titleSpan = postsLink.querySelector('span[title]');
+                    if (titleSpan) {
+                        postsText = titleSpan.getAttribute('title') || '';
                     }
                 }
             }
