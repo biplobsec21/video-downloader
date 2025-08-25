@@ -44,6 +44,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // loadFacebookReels(); // hide for the time being
         } else if (url.includes('instagram.com')) {
             enabledTabId = 'instagramContent';
+            // Load the Instagram reels data
+            loadInstagramReels();
         } else if (url.includes('tiktok.com')) {
             enabledTabId = 'tiktokContent';
         } else if (url.includes('youtube.com')) {
@@ -97,6 +99,90 @@ document.addEventListener('DOMContentLoaded', function () {
         //         facebookContent.innerHTML = '<p>No reels found.</p>';
         //     }
         // });
+    }
+
+    // Function to validate and clean image URL
+    function cleanImageUrl(url) {
+        if (!url) return null;
+
+        // Remove any HTML entities that might still be present
+        let cleanedUrl = url
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+
+        // Ensure it's a valid URL
+        try {
+            new URL(cleanedUrl);
+            return cleanedUrl;
+        } catch (e) {
+            console.log('Invalid URL:', cleanedUrl);
+            return null;
+        }
+    }
+
+    // Function to handle CORS-blocked images
+    function handleCorsImage(imageElement, imageUrl, fallbackSrc = 'icons/t.webp') {
+        if (!imageUrl) {
+            imageElement.src = fallbackSrc;
+            return;
+        }
+
+        // For social media images, we'll use a simple approach
+        // Since CORS blocks direct loading, we'll use the fallback immediately
+        // and log the issue for debugging
+        console.log('Attempting to load image:', imageUrl);
+
+        // Try to load the image directly first
+        imageElement.src = imageUrl;
+
+        // Set up error handling for CORS issues
+        imageElement.onerror = function () {
+            console.log('Image failed to load due to CORS or other issues:', imageUrl);
+            console.log('Using fallback image instead');
+            imageElement.src = fallbackSrc;
+            imageElement.onerror = null; // Prevent infinite loop
+        };
+
+        // Set up success handler
+        imageElement.onload = function () {
+            console.log('Image loaded successfully');
+        };
+    }
+
+    // Function to load Instagram reels data
+    function loadInstagramReels() {
+        chrome.storage.local.get('instagramPageInfo', ({ instagramPageInfo }) => {
+            if (instagramPageInfo) {
+                document.getElementById('instagramPageName').textContent = instagramPageInfo.slug || 'Unnamed Page';
+                document.getElementById('instagramPageFollowers').textContent = instagramPageInfo.followersText || '';
+                document.getElementById('instagramPageFollowing').textContent = instagramPageInfo.followingText || '';
+                document.getElementById('instagramPagePosts').textContent = instagramPageInfo.postsText || '';
+
+                // Handle Instagram page image with CORS handling
+                const instagramPageImage = document.getElementById('instagramPageImage');
+                console.log('Instagram Page Info:', instagramPageInfo);
+                console.log('Instagram Image URL:', instagramPageInfo.imageUrl);
+
+                const cleanedImageUrl = cleanImageUrl(instagramPageInfo.imageUrl);
+                console.log('Cleaned Instagram Image URL:', cleanedImageUrl);
+
+                handleCorsImage(instagramPageImage, cleanedImageUrl, 'icons/t.webp');
+
+                document.getElementById('instagramPageUrl').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    chrome.storage.local.get('instagramPageInfo', ({ instagramPageInfo }) => {
+                        if (instagramPageInfo?.url) {
+                            chrome.tabs.update({ url: instagramPageInfo.url });
+                        }
+                    });
+                });
+            } else {
+                document.getElementById('instagramPageImage').src = 'icons/t.webp';
+            }
+        });
     }
 
     // Function to handle download button click
@@ -182,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Build summary HTML
-            // Build summary HTML
             const firstItems = reelsData.slice(0, 3).map((reel, idx) => {
                 return `<div class="mb-2 flex items-center space-x-2">
                         <span class="text-gray-600 text-sm">#${idx + 1}</span>
@@ -206,7 +291,17 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('fbPageName').textContent = fbPageInfo.pageName || 'Unnamed Page';
             document.getElementById('fbPageLikes').textContent = fbPageInfo.likesText || '';
             document.getElementById('fbPageFollowers').textContent = fbPageInfo.followersText || '';
-            document.getElementById('fbPageImage').src = fbPageInfo.imageUrl || '';
+
+            // Handle Facebook page image with CORS handling
+            const fbPageImage = document.getElementById('fbPageImage');
+            console.log('Facebook Page Info:', fbPageInfo);
+            console.log('Facebook Image URL:', fbPageInfo.imageUrl);
+
+            const cleanedImageUrl = cleanImageUrl(fbPageInfo.imageUrl);
+            console.log('Cleaned Facebook Image URL:', cleanedImageUrl);
+
+            handleCorsImage(fbPageImage, cleanedImageUrl, 'icons/t.webp');
+
             document.getElementById('fbPageUrl').addEventListener('click', (e) => {
                 e.preventDefault();
 
@@ -221,7 +316,6 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('fbPageImage').src = 'icons/t.webp';
         }
 
-
     });
     // Step 2: Download JSON with cookie
     downloadBtn.addEventListener('click', () => {
@@ -231,16 +325,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 return acc;
             }, {});
 
-            const exportData = {
-                reels: reelsData,
-                cookies: cookieObj,
-                collectedAt: new Date().toISOString()
-            };
-
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-
             chrome.storage.local.get('fbPageInfo', ({ fbPageInfo }) => {
+                const exportData = {
+                    reels: reelsData,
+                    cookies: cookieObj,
+                    fbPageInfo: fbPageInfo,
+                    collectedAt: new Date().toISOString()
+                };
+
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
                 const slug = fbPageInfo?.slug || 'facebook_reels';
 
                 chrome.downloads.download({
@@ -303,6 +398,129 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             loveIcon.classList.remove('text-red-500');
             loveIcon.classList.add('text-white');
+        }
+    }
+
+    // Instagram functionality
+    const collectInstagramBtn = document.getElementById('collectInstagramReelsBtn');
+    const instagramSummaryDiv = document.getElementById('instagramReelsSummary');
+    const downloadInstagramBtn = document.getElementById('downloadInstagramJsonBtn');
+
+    let instagramReelsData = [];
+
+    // Step 1: Collect Instagram reels from chrome.storage.local
+    collectInstagramBtn.addEventListener('click', () => {
+        chrome.storage.local.get(['instagramReelsData'], async (result) => {
+            instagramReelsData = result.instagramReelsData || [];
+
+            if (instagramReelsData.length === 0) {
+                instagramSummaryDiv.innerHTML = '⚠️ No Instagram reels data found.';
+                instagramSummaryDiv.classList.remove('hidden');
+                downloadInstagramBtn.classList.add('hidden');
+                return;
+            }
+
+            // Build summary HTML
+            const firstItems = instagramReelsData.slice(0, 3).map((reel, idx) => {
+                return `<div class="mb-2 flex items-center space-x-2">
+                        <span class="text-gray-600 text-sm">#${idx + 1}</span>
+                        <img src="${reel.src}" alt="reel-img" class="w-10 h-10 object-cover rounded" />
+                        <a href="${reel.href}" target="_blank" class="text-pink-500 underline text-sm break-all">${reel.href}</a>
+                    </div>`;
+            }).join('');
+
+            instagramSummaryDiv.innerHTML = `
+                ✅ Total Instagram Reels Found: <strong>${instagramReelsData.length}</strong>
+                <div class="mt-2">Preview (example):</div>
+                ${firstItems}
+            `;
+            instagramSummaryDiv.classList.remove('hidden');
+            downloadInstagramBtn.classList.remove('hidden');
+        });
+    });
+
+    // Step 2: Download Instagram JSON with cookie
+    downloadInstagramBtn.addEventListener('click', () => {
+        chrome.cookies.getAll({ domain: 'instagram.com' }, (cookies) => {
+            const cookieObj = cookies.reduce((acc, cookie) => {
+                acc[cookie.name] = cookie.value;
+                return acc;
+            }, {});
+
+            chrome.storage.local.get('instagramPageInfo', ({ instagramPageInfo }) => {
+                const exportData = {
+                    reels: instagramReelsData,
+                    cookies: cookieObj,
+                    instagramPageInfo: instagramPageInfo,
+                    collectedAt: new Date().toISOString()
+                };
+
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const slug = instagramPageInfo?.slug || 'instagram_reels';
+
+                chrome.downloads.download({
+                    url: url,
+                    filename: `${slug}_${Date.now()}.json`,
+                    saveAs: true
+                });
+            });
+        });
+    });
+
+    // Instagram love button functionality
+    const instagramLoveIcon = document.getElementById('instagramLoveIcon');
+    const instagramLoveBtn = document.getElementById('instagramLoveBtn');
+
+    chrome.storage.local.get(['instagramPageInfo', 'savedInstagramPageInfo'], (data) => {
+        const instagramPageInfo = data.instagramPageInfo;
+        const slug = instagramPageInfo?.slug;
+        const savedInstagramPageInfo = data.savedInstagramPageInfo || {};
+
+        const isSaved = slug && savedInstagramPageInfo[slug]?.some(p => p.url === instagramPageInfo.url);
+        toggleInstagramLoveIcon(isSaved);
+    });
+
+    instagramLoveBtn.addEventListener('click', () => {
+        chrome.storage.local.get(['instagramPageInfo', 'savedInstagramPageInfo'], (data) => {
+            const instagramPageInfo = data.instagramPageInfo;
+            const slug = instagramPageInfo?.slug;
+            if (!instagramPageInfo || !slug) return;
+
+            let savedInstagramPageInfo = data.savedInstagramPageInfo || {};
+            let currentList = savedInstagramPageInfo[slug] || [];
+
+            const index = currentList.findIndex(p => p.url === instagramPageInfo.url);
+
+            const isAlreadySaved = index !== -1;
+
+            if (isAlreadySaved) {
+                currentList.splice(index, 1); // Remove item
+            } else {
+                currentList.push(instagramPageInfo); // Save item
+            }
+
+            // Update storage
+            savedInstagramPageInfo[slug] = currentList;
+            chrome.storage.local.set({ savedInstagramPageInfo }, () => {
+                toggleInstagramLoveIcon(!isAlreadySaved);
+            });
+        });
+    });
+
+    // Helper to update Instagram heart icon style
+    function toggleInstagramLoveIcon(saved) {
+        instagramLoveIcon.classList.remove('scale-125');
+        instagramLoveIcon.classList.add('scale-125');
+        setTimeout(() => instagramLoveIcon.classList.remove('scale-125'), 300);
+
+        if (saved) {
+            instagramLoveIcon.classList.remove('text-white');
+            instagramLoveIcon.classList.add('text-red-500');
+        } else {
+            instagramLoveIcon.classList.remove('text-red-500');
+            instagramLoveIcon.classList.add('text-white');
         }
     }
 
